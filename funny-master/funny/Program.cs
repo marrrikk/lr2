@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using funny.Data;
 using funny.Logic;
+using UsersProxy;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +17,16 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddTransient<IOldSexLogic, OldSexLogic>();
 
+builder.Services.AddHttpClient("Users", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["UserService:Url"] ?? "http://localhost:8000/");
+});
+// РћР±С‰РёР№ СЃС‡С‘С‚С‡РёРє РґР»СЏ РєРѕР»С‹, РїРёС†С†С‹ Рё РѕР±СЂР°С‚РЅРѕР№ СЃРІСЏР·Рё.
+builder.Services.AddSingleton<IUsersProxy>(services => new UserProxy(
+    services.GetRequiredService<IHttpClientFactory>().CreateClient("Users"),
+    builder.Configuration["UserService:Role"] ?? "Client",
+    TimeSpan.FromSeconds(builder.Configuration.GetValue<int>("UserService:RequestIntervalSeconds", 60))));
+
 var app = builder.Build();
 
 app.UseSwagger();
@@ -29,6 +40,25 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
 }
+
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next(context);
+    }
+    catch (HttpRequestException ex)
+    {
+        app.Logger.LogError(ex, "РћС€РёР±РєР° РѕР±СЂР°С‰РµРЅРёСЏ Рє СЃРµСЂРІРёСЃСѓ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№");
+        context.Response.StatusCode = 502;
+        await context.Response.WriteAsync("РЎРµСЂРІРёСЃ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ РЅРµРґРѕСЃС‚СѓРїРµРЅ РёР»Рё РѕС‚РєР»РѕРЅРёР» Р·Р°РїСЂРѕСЃ. РџСЂРѕРІРµСЂСЊС‚Рµ РµРіРѕ Р·Р°РїСѓСЃРє Рё СЂРѕР»СЊ Client.");
+    }
+    catch (ArgumentException ex)
+    {
+        context.Response.StatusCode = 400;
+        await context.Response.WriteAsync(ex.Message);
+    }
+});
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
@@ -55,11 +85,11 @@ using (var scope = app.Services.CreateScope())
         {
             var defaultServices = new[]
             {
-                new funny.Models.DigitalService { Name = "Разработка Landing Page", Description = "Быстрый одностраничный сайт для конверсии", Price = 15000 },
-                new funny.Models.DigitalService { Name = "Разработка Корпоративного сайта", Description = "Многостраничный сайт для вашей компании с админкой", Price = 45000 },
-                new funny.Models.DigitalService { Name = "Настройка Яндекс.Директ", Description = "Контекстная реклама с гарантией целевых лидов", Price = 10000 },
-                new funny.Models.DigitalService { Name = "SEO Оптимизация", Description = "Вывод вашего сайта в топ-10 поисковых систем", Price = 20000 },
-                new funny.Models.DigitalService { Name = "Техническая поддержка 24/7", Description = "Мониторинг серверов и оперативное исправление багов", Price = 8000 }
+                new funny.Models.DigitalService { Name = "Р Р°Р·СЂР°Р±РѕС‚РєР° Landing Page", Description = "Р‘С‹СЃС‚СЂС‹Р№ РѕРґРЅРѕСЃС‚СЂР°РЅРёС‡РЅС‹Р№ СЃР°Р№С‚ РґР»СЏ РєРѕРЅРІРµСЂСЃРёРё", Price = 15000 },
+                new funny.Models.DigitalService { Name = "Р Р°Р·СЂР°Р±РѕС‚РєР° РљРѕСЂРїРѕСЂР°С‚РёРІРЅРѕРіРѕ СЃР°Р№С‚Р°", Description = "РњРЅРѕРіРѕСЃС‚СЂР°РЅРёС‡РЅС‹Р№ СЃР°Р№С‚ РґР»СЏ РІР°С€РµР№ РєРѕРјРїР°РЅРёРё СЃ Р°РґРјРёРЅРєРѕР№", Price = 45000 },
+                new funny.Models.DigitalService { Name = "РќР°СЃС‚СЂРѕР№РєР° РЇРЅРґРµРєСЃ.Р”РёСЂРµРєС‚", Description = "РљРѕРЅС‚РµРєСЃС‚РЅР°СЏ СЂРµРєР»Р°РјР° СЃ РіР°СЂР°РЅС‚РёРµР№ С†РµР»РµРІС‹С… Р»РёРґРѕРІ", Price = 10000 },
+                new funny.Models.DigitalService { Name = "SEO РћРїС‚РёРјРёР·Р°С†РёСЏ", Description = "Р’С‹РІРѕРґ РІР°С€РµРіРѕ СЃР°Р№С‚Р° РІ С‚РѕРї-10 РїРѕРёСЃРєРѕРІС‹С… СЃРёСЃС‚РµРј", Price = 20000 },
+                new funny.Models.DigitalService { Name = "РўРµС…РЅРёС‡РµСЃРєР°СЏ РїРѕРґРґРµСЂР¶РєР° 24/7", Description = "РњРѕРЅРёС‚РѕСЂРёРЅРі СЃРµСЂРІРµСЂРѕРІ Рё РѕРїРµСЂР°С‚РёРІРЅРѕРµ РёСЃРїСЂР°РІР»РµРЅРёРµ Р±Р°РіРѕРІ", Price = 8000 }
             };
 
             context.DigitalServices.AddRange(defaultServices);
@@ -69,7 +99,7 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Ошибка при автоматическом создании или заполнении БД.");
+        logger.LogError(ex, "РћС€РёР±РєР° РїСЂРё Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРѕРј СЃРѕР·РґР°РЅРёРё РёР»Рё Р·Р°РїРѕР»РЅРµРЅРёРё Р‘Р”.");
     }
 }
 

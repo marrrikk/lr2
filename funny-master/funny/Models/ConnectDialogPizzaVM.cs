@@ -1,6 +1,6 @@
 ﻿namespace funny.Models
 {
-    public class ConnectDialogPizzaVM
+    public class ConnectDialogPizzaVM : ConnectDialog
     {
         public long Id { get; set; }
         public string? Size { get; set; }
