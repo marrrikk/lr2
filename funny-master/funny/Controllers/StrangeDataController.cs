@@ -10,6 +10,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UsersProxy;
 
 namespace funny.Controllers
 {
@@ -24,18 +25,23 @@ namespace funny.Controllers
 
         private readonly ILogger<StrangeDataController> _logger;
         private readonly AppDbContext _context;
+        private readonly IUsersProxy _users;
 
-        public StrangeDataController(ILogger<StrangeDataController> logger, AppDbContext context)
+        public StrangeDataController(ILogger<StrangeDataController> logger, AppDbContext context, IUsersProxy users)
         {
             _logger = logger;
             _context = context;
+            _users = users;
         }
 
         [HttpPost("SendCola")]
-        public IActionResult SendCola([FromBody] ConnectDialogColaVM colaVM)
+        public async Task<IActionResult> SendCola([FromBody] ConnectDialogColaVM colaVM, CancellationToken cancellationToken)
         {
             if (colaVM == null)
                 return BadRequest("Данные заказа не могут быть пустыми.");
+
+            if (!await _users.AcceptRequestAsync(colaVM.Name, colaVM.Phone, cancellationToken))
+                return StatusCode(403, "вы не обслуживаетесь");
 
             _logger.LogInformation("Получен заказ колы. Вкус: {Tasty}, Объем: {Volume}, Имя: {Name}, Телефон: {Phone}",
                 colaVM.Tasty, colaVM.Volume, colaVM.Name, colaVM.Phone);
@@ -87,10 +93,13 @@ namespace funny.Controllers
         }
 
         [HttpPost("SendPizza")]
-        public IActionResult SendPizza([FromBody] ConnectDialogPizzaVM pizzaVM)
+        public async Task<IActionResult> SendPizza([FromBody] ConnectDialogPizzaVM pizzaVM, CancellationToken cancellationToken)
         {
             if (pizzaVM == null)
                 return BadRequest("Данные заказа не могут быть пустыми.");
+
+            if (!await _users.AcceptRequestAsync(pizzaVM.Name, pizzaVM.Phone, cancellationToken))
+                return StatusCode(403, "вы не обслуживаетесь");
 
             _logger.LogInformation("Получен заказ пиццы. Размер: {Size}, Опции: {Options}, Толщина: {Thickness}",
                 pizzaVM.Size, pizzaVM.Options, pizzaVM.Thickness);
@@ -244,7 +253,7 @@ namespace funny.Controllers
         }
 
         [HttpPost("HelpPolice")]
-        public IActionResult HelpPolice([FromBody] ConnectDialogPolice? request)
+        public IActionResult HelpPolice()
         {
             string userAgent = Request.Headers["User-Agent"].ToString();
 
